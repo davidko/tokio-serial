@@ -7,6 +7,7 @@ extern crate tokio_serial;
 use std::{env, io, str};
 use tokio::io::AsyncRead;
 use tokio_io::codec::{Decoder, Encoder};
+use tokio_serial::BaudRate;
 
 use bytes::BytesMut;
 
@@ -15,7 +16,7 @@ use futures::{Future, Stream};
 #[cfg(unix)]
 const DEFAULT_TTY: &str = "/dev/ttyUSB0";
 #[cfg(windows)]
-const DEFAULT_TTY: &str = "COM1";
+const DEFAULT_TTY: &str = "COM3";
 
 struct LineCodec;
 
@@ -24,6 +25,7 @@ impl Decoder for LineCodec {
     type Error = io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
+        println!("decode {:?}.", src);
         let newline = src.as_ref().iter().position(|b| *b == b'\n');
         if let Some(n) = newline {
             let line = src.split_to(n + 1);
@@ -46,11 +48,13 @@ impl Encoder for LineCodec {
 }
 
 fn main() {
+    println!("Begin example...");
     let mut args = env::args();
     let tty_path = args.nth(1).unwrap_or_else(|| DEFAULT_TTY.into());
 
-    let settings = tokio_serial::SerialPortSettings::default();
-    let mut port = tokio_serial::Serial::from_path(tty_path, &settings).unwrap();
+    let mut settings = tokio_serial::SerialPortSettings::default();
+    settings.baud_rate = BaudRate::Baud115200;
+    let port = tokio_serial::Serial::from_path(tty_path, &settings).unwrap();
     #[cfg(unix)]
     port.set_exclusive(false)
         .expect("Unable to set serial port exlusive");
@@ -65,4 +69,5 @@ fn main() {
         .map_err(|e| eprintln!("{}", e));
 
     tokio::run(printer);
+    println!("Example completed.");
 }
